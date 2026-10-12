@@ -142,6 +142,29 @@ nav.bar button[aria-current="page"] svg{color:var(--accent)}
 #toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:9px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:30;max-width:calc(100% - 32px)}
 .note{font-size:13px;color:var(--muted)}
 .confirm{background:var(--bad-soft);border-radius:8px;padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+/* ---- print labels ---- */
+#print{display:none}
+.lbl{box-sizing:border-box;display:flex;gap:2.5mm;align-items:center;overflow:hidden;color:#000;background:#fff;font-family:var(--f-body)}
+.lbl .qrc{flex:none}
+.lbl .qrc img,.lbl .qrc canvas{width:100%!important;height:auto!important}
+.lbl .tx{min-width:0;display:flex;flex-direction:column;gap:.6mm}
+.lbl .code{font-family:var(--f-mono);font-weight:500;line-height:1}
+.lbl .nm{font-weight:600;line-height:1.1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.lbl .meta{line-height:1.15;overflow:hidden;max-height:2.3em}
+.p62 .lbl{width:62mm;height:29mm;padding:1.5mm 2.5mm;break-after:page;page-break-after:always}
+.p62 .lbl:last-child{break-after:auto;page-break-after:auto}
+.p62 .qrc{width:25mm}.p62 .code{font-size:14pt}.p62 .nm{font-size:8.5pt}.p62 .meta{font-size:7pt}
+.pa4 .a4p{width:210mm;height:296mm;display:grid;grid-template-columns:repeat(3,70mm);grid-template-rows:repeat(8,37mm);align-content:center;break-after:page;page-break-after:always}
+.pa4 .a4p:last-child{break-after:auto;page-break-after:auto}
+.pa4 .lbl{width:70mm;height:37mm;padding:3mm 4mm}
+.pa4 .qrc{width:29mm}.pa4 .code{font-size:15pt}.pa4 .nm{font-size:9.5pt}.pa4 .meta{font-size:8pt}
+@media print{
+  header.top,nav.bar,#app,#modal,#toast{display:none!important}
+  html,body{background:#fff!important}
+  :root{padding:0!important}
+  body{margin:0!important}
+  #print{display:block!important}
+}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(16px);opacity:.6}}}
 </style>
 </head><body>
@@ -153,10 +176,12 @@ nav.bar button[aria-current="page"] svg{color:var(--accent)}
     <button type="button" id="role-r" data-act="role" data-v="radnik">Radnik</button>
   </div>
 </div></header>
-<main class="wrap" id="app"></main>
+<main class="wrap" id="app"><div class="demo" style="margin-top:16px"><span><b>Aplikacija se ovde ne pokreće.</b> Ovaj prikaz ne izvršava aplikacije. Otvori link u Safariju (ili Chrome-u) da bi je koristio.</span></div></main>
 <nav class="bar" aria-label="Glavni meni"><div class="in" id="nav"></div></nav>
 <div id="modal" hidden></div>
 <div id="toast" hidden></div>
+<div id="print" aria-hidden="true"></div>
+<style id="pagestyle"></style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -371,6 +396,7 @@ function vKlijent(){
     const selN=[...ui.sel].filter(id=>ins.some(i=>i.id===id)).length;
     html+=`<div class="row"><button class="btn primary" type="button" data-act="prijem">+ Prijem stvari</button>
       <button class="btn" type="button" data-act="izdaj" ${selN?'':'disabled'}>Izdaj izabrano${selN?` (${selN})`:''}</button>
+      ${ins.length?`<button class="btn" type="button" data-act="labels">Nalepnice${selN?` (${selN})`:''}</button>`:''}
       <span class="spacer"></span>${ins.length?`<button class="link" type="button" data-act="selAll">${selN===ins.length?'Poništi izbor':'Izaberi sve'}</button>`:''}</div>
      <section class="panel"><div class="hd"><h3>U magacinu</h3><span class="muted" style="font-size:13px">Štikliraj stavke koje klijent nosi, pa „Izdaj izabrano”.</span></div>
      <ul class="list">${ins.length?ins.map(i=>itemRow(c,i,true)).join(''):'<li class="empty">Nema stvari u magacinu. Dodaj ih preko „Prijem stvari”.</li>'}</ul></section>`;
@@ -484,9 +510,9 @@ function prijemForm(c){
     m.querySelector('#pf').addEventListener('submit',ev=>{ev.preventDefault();
       const name=m.querySelector('#pf-name').value.trim();if(!name)return;
       const q=Math.max(1,Math.min(50,parseInt(m.querySelector('#pf-qty').value)||1)),tot=num(pm.value),each=Math.round(tot/q*1000)/1000,zone=m.querySelector('#pf-zone').value,d=m.querySelector('#pf-date').value||iso(today());
-      const codes=[];for(let k=0;k<q;k++){const code='S-'+String(state.nextCode++).padStart(4,'0');codes.push(code);c.items.push({id:uid(),code,name:q>1?`${name} (${k+1}/${q})`:name,zone,photo,m3:each,inDate:d,outDate:null,note:''})}
+      const codes=[],added=[];for(let k=0;k<q;k++){const code='S-'+String(state.nextCode++).padStart(4,'0');codes.push(code);const ni={id:uid(),code,name:q>1?`${name} (${k+1}/${q})`:name,zone,photo,m3:each,inDate:d,outDate:null,note:''};c.items.push(ni);added.push({c,i:ni})}
       log(`${c.name} – primljeno ${q} ${q===1?'stavka':'stavki'}, ${tot} m³, zona ${zone} (${codes[0]}${q>1?'–'+codes[q-1]:''})`);
-      save();close();render();toast(`Primljeno: ${q} ${q===1?'stavka':'stavki'}`)});
+      save();close();render();toast(`Primljeno: ${q} ${q===1?'stavka':'stavki'}`);printDialog(added,true)});
   });
 }
 function izdajForm(c){
@@ -531,15 +557,40 @@ function itemInfo(c,i){
   const zs=state.settings.zones;
   modal(head(esc(i.name))+`<div class="stack">
    <div class="label"><div class="qr" id="qrbox" aria-label="QR kod ${i.code}"></div><div><div class="code">${i.code}</div><div style="font-weight:600">${esc(c.name)}</div><div class="muted">Zona ${esc(i.zone)} · ${fmtD(i.inDate)}</div></div></div>
-   <p class="note" style="margin:0">Ovako izgleda nalepnica. U pravoj aplikaciji se štampa na mali štampač nalepnica i skenira telefonom.</p>
+   <p class="note" style="margin:0">Ovako izgleda nalepnica. Radnik je skenira telefonom i odmah vidi stavku.</p>
    ${i.photo?`<img class="photo" src="${i.photo}" alt="Fotografija: ${esc(i.name)}">`:''}
    <dl class="facts panel" style="margin:0"><div><dt>Status</dt><dd>${i.outDate?'Izdato '+fmtD(i.outDate):'U magacinu'}</dd></div><div><dt>Primljeno</dt><dd>${fmtD(i.inDate)}</dd></div><div><dt>Zapremina</dt><dd>${num(i.m3)} m³</dd></div>${i.note?`<div><dt>Napomena</dt><dd>${esc(i.note)}</dd></div>`:''}</dl>
    ${i.outDate?'':`<label class="f" for="ii-m3">Zapremina (m³)<input type="number" step="0.1" min="0" id="ii-m3" value="${num(i.m3)}"></label>`}
    ${i.outDate?'':`<label class="f" for="ii-zone">Premesti u zonu<select id="ii-zone">${zs.map(z=>`<option ${z===i.zone?'selected':''}>${esc(z)}</option>`).join('')}</select></label>`}
-   <div class="row"><button class="btn" type="button" data-act="openFromItem" data-id="${c.id}">Karton klijenta</button><button class="btn primary" type="button" data-act="close">Zatvori</button></div></div>`,m=>{
+   <div class="row"><button class="btn" type="button" data-act="printOne" data-c="${c.id}" data-id="${i.id}">Štampaj nalepnicu</button><button class="btn" type="button" data-act="openFromItem" data-id="${c.id}">Karton klijenta</button><button class="btn primary" type="button" data-act="close">Zatvori</button></div></div>`,m=>{
    try{new QRCode(m.querySelector('#qrbox'),{text:i.code+' | '+c.name,width:112,height:112,colorDark:'#000000',colorLight:'#ffffff'})}catch(e){m.querySelector('#qrbox').textContent=i.code}
    const mi=m.querySelector('#ii-m3');mi&&mi.addEventListener('change',()=>{i.m3=num(mi.value);log(`${c.name} – ${i.code} zapremina ${i.m3} m³`);save();render();toast('Zapremina je izmenjena')});
    const zsel=m.querySelector('#ii-zone');zsel&&zsel.addEventListener('change',()=>{const old=i.zone;i.zone=zsel.value;log(`${c.name} – ${i.code} premešteno ${old} → ${i.zone}`);save();render();toast('Premešteno u zonu '+i.zone)});
+  });
+}
+
+/* ---------- printing labels ---------- */
+function printLabels(list,mode,skip){
+  const P=$('#print');P.className=mode==='a4'?'pa4':'p62';
+  $('#pagestyle').textContent=mode==='a4'?'@page{size:A4 portrait;margin:0}':'@page{size:62mm 29mm;margin:0}';
+  const lbl=x=>x?`<div class="lbl"><div class="qrc" data-q="${esc(x.i.code+' | '+x.c.name)}"></div><div class="tx"><div class="code">${x.i.code}</div><div class="nm">${esc(x.c.name)}</div><div class="meta">Zona ${esc(x.i.zone)} · ${esc(x.i.name)}</div></div></div>`:'<div class="lbl"></div>';
+  if(mode==='a4'){const cells=[...Array(skip).fill(null),...list],pages=[];for(let k=0;k<cells.length;k+=24)pages.push(cells.slice(k,k+24));
+    P.innerHTML=pages.map(pg=>`<div class="a4p">${pg.map(lbl).join('')}</div>`).join('')}
+  else P.innerHTML=list.map(lbl).join('');
+  P.querySelectorAll('.qrc').forEach(el=>{try{new QRCode(el,{text:el.dataset.q,width:256,height:256,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})}catch(e){}});
+  setTimeout(()=>{try{window.print()}catch(e){toast('Štampanje nije dostupno u ovom prikazu')}},350);
+}
+function printDialog(list,after){
+  if(!list.length)return;
+  modal(head('Štampaj nalepnice')+`<p class="note" style="margin:-6px 0 12px">${list.length} ${list.length===1?'nalepnica':'nalepnica'} · ${esc([...new Set(list.map(x=>x.c.name))].join(', '))}</p>
+   <form id="prf" class="stack">
+    <label class="row" style="align-items:flex-start"><input type="radio" name="pm" value="62" id="pm-62" class="check" checked><span><b>Štampač nalepnica</b><br><span class="note">Traka 62 mm, nalepnica 62 × 29 mm (npr. Brother QL). Svaka nalepnica posebno.</span></span></label>
+    <label class="row" style="align-items:flex-start"><input type="radio" name="pm" value="a4" id="pm-a4" class="check"><span><b>A4 tabak</b><br><span class="note">24 nalepnice po listu, 3 × 8, veličine 70 × 37 mm. Običan štampač.</span></span></label>
+    <label class="f" for="pr-skip" id="pr-skipw" hidden>Koliko nalepnica je već skinuto sa tabaka<input type="number" id="pr-skip" min="0" max="23" value="0"><span class="h">Štampa kreće od sledećeg slobodnog mesta, pa delimično potrošen tabak nije bačen</span></label>
+    <p class="note" style="margin:0">Na iPhoneu se otvara prozor za štampu: izaberi štampač (AirPrint). Na računaru isključi „Headers and footers” i podesi razmeru na 100%. Štampanje ne radi u Claude prikazu, samo kad je aplikacija otvorena preko svog linka u Safariju ili Chrome-u.</p>
+    <div class="row"><button class="btn primary" type="submit">Štampaj</button><button class="btn" type="button" data-act="close">${after?'Kasnije':'Odustani'}</button></div></form>`,m=>{
+    const w=m.querySelector('#pr-skipw');m.querySelectorAll('input[name=pm]').forEach(r=>r.addEventListener('change',()=>{w.hidden=m.querySelector('#pm-a4').checked===false}));
+    m.querySelector('#prf').addEventListener('submit',ev=>{ev.preventDefault();const mode=m.querySelector('#pm-a4').checked?'a4':'62';const skip=Math.max(0,Math.min(23,parseInt(m.querySelector('#pr-skip').value)||0));close();printLabels(list,mode,mode==='a4'?skip:0)});
   });
 }
 
@@ -566,6 +617,8 @@ document.addEventListener('click',e=>{
     case 'prevoz':prevozForm(c);break;
     case 'itemInfo':{const cc=findC(a.dataset.c);const it=cc&&cc.items.find(x=>x.id===a.dataset.id);it&&itemInfo(cc,it);break}
     case 'close':close();break;
+    case 'labels':{const ins=inStock(c);const pick=ins.filter(i=>ui.sel.has(i.id));printDialog((pick.length?pick:ins).map(i=>({c,i})));break}
+    case 'printOne':{const cc=findC(a.dataset.c);const it=cc&&cc.items.find(x=>x.id===a.dataset.id);if(it){close();printDialog([{c:cc,i:it}])}break}
     case 'reset':ui.confirmReset=true;render();break;
     case 'resetNo':ui.confirmReset=false;render();break;
     case 'resetYes':ui.confirmReset=false;state=seed();save();ui.view='pregled';render();toast('Vraćeni početni primeri');break;
