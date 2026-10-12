@@ -6,6 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Magacin">
 <meta name="theme-color" content="#ECEEEC">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}</style>
 <title>Stanković Magacin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -230,7 +233,8 @@ function seed(){
   s=D(12,-6); const pOut=iso(addDays(t,-40)); cs.push(mk({name:'Studio Forma',type:'Firma',phone:'060 455 0071',start:s,m3:15,monthly:112.5,
     items:[it('Sajamski štand, kutije','D',s,pOut),it('Sajamski štand, panoi','D',s),it('Rasveta, kofer','D',s),it('Stolovi sklopivi (6)','D',s,pOut)],_unpaid:0}));
   cs.forEach(c=>{const k=c.items.length,base=Math.floor(c.m3*10/k)/10;c.items.forEach((i,j)=>i.m3=j===0?Math.round((c.m3-base*(k-1))*10)/10:base);c.priceMode='auto';delete c.m3});
-  const st={settings:{price:7.5,grace:5,mode:'prijem',fixedDay:15,warnDays:7,zones:['A','B','C','D']},clients:cs,log:[],nextCode:n+1,role:'vlasnik',demo:true};
+  cs.slice().sort((a,b)=>a.start.localeCompare(b.start)).forEach((c,k)=>{c.no=k+1;c.nextItem=1;c.items.forEach(i=>i.code=c.no+'-'+(c.nextItem++))});
+  const st={settings:{price:7.5,grace:5,mode:'prijem',fixedDay:15,warnDays:7,zones:['A','B','C','D'],labels:'rucno'},clients:cs,log:[],nextClientNo:cs.length+1,role:'vlasnik',demo:true};
   state=st;
   cs.forEach(c=>{
     const ch=charges(c).list; const paidN=ch.length-(c._unpaid||0);
@@ -239,7 +243,7 @@ function seed(){
     delete c._unpaid;delete c._payExtras;
   });
   st.log=[
-    {ts:iso(addDays(t,-40)),text:'Studio Forma – izdato 2 stavke (S-0023, S-0026)'},
+    {ts:iso(addDays(t,-40)),text:'Studio Forma – izdato 2 stavke (1-1, 1-4)'},
     {ts:cs[3].start,text:'Nikola Jovanović – primljeno 3 stavke, zona A'},
     {ts:iso(addDays(t,-2)),text:'Gradnja Plus d.o.o. – uplata 300,00 €'},
   ];
@@ -319,7 +323,7 @@ function clientRow(c,extra){
   const m=money(c),n=inStock(c).length;
   const right=isOwner()&&m.saldo>0.009?`<div class="num" style="font-weight:600;color:var(--${m.status.k==='bad'?'bad':'warn'})">${eur(m.saldo)}</div>`:'';
   return `<li><button type="button" class="item" data-act="open" data-id="${c.id}">
-    <div class="main"><div class="t">${esc(c.name)}</div><div class="s">${extra||`${esc(c.type)} · ${curM3(c)} m³ · ${n} ${n===1?'stavka':'stavki'} u magacinu`}</div></div>
+    <span class="zone" style="background:var(--accent);color:var(--accent-ink);min-width:32px" title="Broj klijenta">${c.no}</span><div class="main"><div class="t">${esc(c.name)}</div><div class="s">${extra||`${esc(c.type)} · ${curM3(c)} m³ · ${n} ${n===1?'stavka':'stavki'} u magacinu`}</div></div>
     <div class="r stack" style="gap:4px;align-items:flex-end">${chip(c,m)}${right}</div></button></li>`;
 }
 function vPregled(){
@@ -355,14 +359,14 @@ function vPregled(){
 }
 function vKlijenti(){
   const q=ui.q.trim().toLowerCase();
-  let cs=state.clients.filter(c=>!q||c.name.toLowerCase().includes(q)||c.phone.replace(/\s/g,'').includes(q.replace(/\s/g,'')));
+  let cs=state.clients.filter(c=>!q||String(c.no)===q||c.name.toLowerCase().includes(q)||c.phone.replace(/\s/g,'').includes(q.replace(/\s/g,'')));
   if(isOwner()&&ui.filter!=='svi')cs=cs.filter(c=>{const k=money(c).status.k;return ui.filter==='duguju'?(k==='bad'||k==='warn'):ui.filter==='uskoro'?k==='info':ui.filter==='zavrseni'?k==='done':true});
   if(!isOwner())cs=cs.filter(active);
-  cs.sort((a,b)=>a.name.localeCompare(b.name,'sr'));
+  cs.sort((a,b)=>a.no-b.no);
   const f=[['svi','Svi'],['duguju','Duguju'],['uskoro','Rok uskoro'],['zavrseni','Završeni']];
   return `<div class="stack">
    <div class="row"><h1>Klijenti</h1><span class="spacer"></span>${isOwner()?'<button class="btn primary" type="button" data-act="newClient">+ Novi klijent</button>':''}</div>
-   <input type="search" id="q" placeholder="Pretraga po imenu ili telefonu" value="${esc(ui.q)}" aria-label="Pretraga klijenata">
+   <input type="search" id="q" placeholder="Pretraga po imenu, broju klijenta ili telefonu" value="${esc(ui.q)}" aria-label="Pretraga klijenata">
    ${isOwner()?`<div class="filters">${f.map(([k,l])=>`<button type="button" data-act="filter" data-v="${k}" aria-pressed="${ui.filter===k}">${l}</button>`).join('')}</div>`:''}
    <section class="panel"><ul class="list">${cs.length?cs.map(c=>clientRow(c)).join(''):'<li class="empty">Nema klijenata za ovu pretragu.</li>'}</ul></section></div>`;
 }
@@ -379,7 +383,7 @@ function vKlijent(){
   const m=money(c),ins=inStock(c),outs=c.items.filter(i=>i.outDate);
   let html=`<div class="stack">
    <button class="link" type="button" data-act="go" data-v="klijenti">← Svi klijenti</button>
-   <div class="row" style="align-items:flex-start"><div style="flex:1;min-width:0"><div class="eyebrow">${esc(c.type)}</div><h1>${esc(c.name)}</h1></div>${chip(c,m)}</div>
+   <div class="row" style="align-items:flex-start"><div style="flex:1;min-width:0"><div class="eyebrow">Klijent br. ${c.no} · ${esc(c.type)}</div><h1>${esc(c.name)}</h1></div>${chip(c,m)}</div>
    <section class="panel"><dl class="facts" style="margin:0">
      <div><dt>Prijem robe</dt><dd>${fmtD(c.start)}</dd></div>
      <div><dt>U magacinu</dt><dd>${curM3(c)} m³</dd></div>
@@ -424,13 +428,15 @@ function vMagacin(){
   const zs=state.settings.zones,act=state.clients.filter(active);
   const all=[];act.forEach(c=>inStock(c).forEach(i=>all.push({c,i})));
   const q=ui.mq.trim().toLowerCase();
-  let res=all.filter(x=>(ui.zone==='sve'||x.i.zone===ui.zone)&&(!q||x.i.code.toLowerCase().includes(q)||x.i.name.toLowerCase().includes(q)||x.c.name.toLowerCase().includes(q)));
-  res.sort((a,b)=>a.i.zone.localeCompare(b.i.zone)||a.i.code.localeCompare(b.i.code));
+  const qn=q.replace(/\s/g,'').replace(/[\/.]/g,'-');
+  const hit=x=>{if(!q)return true;if(/^\d+$/.test(qn))return String(x.c.no)===qn;if(/^\d+-\d*$/.test(qn))return x.i.code.startsWith(qn)&&(qn.endsWith('-')||x.i.code===qn);return x.i.name.toLowerCase().includes(q)||x.c.name.toLowerCase().includes(q)};
+  let res=all.filter(x=>(ui.zone==='sve'||x.i.zone===ui.zone)&&hit(x));
+  res.sort((a,b)=>a.i.zone.localeCompare(b.i.zone)||a.c.no-b.c.no||parseInt(a.i.code.split('-')[1])-parseInt(b.i.code.split('-')[1]));
   return `<div class="stack"><h1>Magacin</h1>
    <div class="zcards">${zs.map(z=>{const its=all.filter(x=>x.i.zone===z),cl=new Set(its.map(x=>x.c.id)).size;
      return `<button type="button" class="zcard" data-act="zone" data-v="${esc(z)}" aria-pressed="${ui.zone===z}"><div class="z">${esc(z)}</div><div class="s muted" style="font-size:13px">${its.length} stavki · ${cl} klij.</div></button>`}).join('')}</div>
-   <input type="search" id="mq" placeholder="Broj nalepnice (npr. S-0004), naziv ili klijent" value="${esc(ui.mq)}" aria-label="Pretraga stavki">
-   <p class="note" style="margin:0">U pravoj aplikaciji radnik ovde skenira QR nalepnicu telefonom i odmah dobija stavku.</p>
+   <input type="search" id="mq" placeholder="Broj sa kutije (npr. 3-2), broj klijenta, naziv ili ime" value="${esc(ui.mq)}" aria-label="Pretraga stavki">
+   <p class="note" style="margin:0">Ukucaj broj sa kutije, na primer <b>3-2</b>, ili samo broj klijenta, na primer <b>3</b>, za sve njegove stvari. U pravoj aplikaciji QR nalepnica može i da se skenira telefonom.</p>
    <section class="panel"><div class="hd"><h3>${ui.zone==='sve'?'Sve zone':'Zona '+esc(ui.zone)}</h3><span class="spacer"></span>${ui.zone!=='sve'?'<button class="link" type="button" data-act="zone" data-v="sve">Prikaži sve</button>':''}<span class="muted num" style="font-size:13px">${res.length} stavki</span></div>
    <ul class="list">${res.length?res.map(({c,i})=>`<li><button type="button" class="item" data-act="itemInfo" data-c="${c.id}" data-id="${i.id}">
      ${i.photo?`<img class="thumb" src="${i.photo}" alt="">`:`<span class="thumb" aria-hidden="true">${esc(i.name[0])}</span>`}
@@ -453,10 +459,20 @@ function vPodesavanja(){
      <label class="f" for="s-grace">Tolerancija posle roka (dana)<input type="number" min="0" id="s-grace" value="${s.grace}"><span class="h">Važi za „na dan prijema”</span></label>
      <label class="f" for="s-fixed">Dan u mesecu<input type="number" min="1" max="28" id="s-fixed" value="${s.fixedDay}"><span class="h">Važi za „isti dan za sve”</span></label>
     </div>
+    <h3>Obeležavanje robe</h3>
+    <fieldset style="border:0;padding:0;margin:0" class="stack"><legend class="sr" style="position:absolute;left:-9999px">Obeležavanje</legend>
+     <label class="row"><input type="radio" name="labels" value="rucno" id="s-l1" class="check" ${s.labels!=='qr'?'checked':''}> Ručno pisani brojevi (posle prijema aplikacija kaže šta da napišeš)</label>
+     <label class="row"><input type="radio" name="labels" value="qr" id="s-l2" class="check" ${s.labels==='qr'?'checked':''}> QR nalepnice (posle prijema se otvara štampa)</label>
+    </fieldset>
+    <p class="note" style="margin:0">Brojevi su isti u oba slučaja (broj klijenta, crtica, redni broj komada), pa se može preći sa papira na nalepnice bilo kad.</p>
     <h3>Zone u magacinu</h3>
     <label class="f" for="s-zones">Oznake zona, odvojene zarezom<input type="text" id="s-zones" value="${esc(s.zones.join(', '))}"></label>
     <div class="row"><button class="btn primary" type="submit">Sačuvaj podešavanja</button></div>
    </div></form>
+   <section class="panel" style="padding:14px"><div class="stack"><h3>Test notifikacija</h3>
+    <p class="note" style="margin:0" id="nt-status">${notifStatus()}</p>
+    <div class="row"><button class="btn primary" type="button" data-act="notifyTest" data-v="0">Pošalji test notifikaciju</button><button class="btn" type="button" data-act="notifyTest" data-v="5">Pošalji za 5 sekundi</button></div>
+   </div></section>
    <section class="panel" style="padding:14px"><div class="stack"><h3>Primer podataka</h3>
     <p class="note" style="margin:0">Vraća prototip na početne izmišljene klijente. Isto se dešava i kad zatvoriš ili osvežiš stranicu.</p>
     ${ui.confirmReset?`<div class="confirm"><span>Sigurno vraćaš na početne primere?</span><span class="spacer"></span><button class="btn sm" type="button" data-act="resetNo">Odustani</button><button class="btn sm danger" type="button" data-act="resetYes">Da, vrati</button></div>`:'<div><button class="btn danger" type="button" data-act="reset">Vrati početne primere</button></div>'}
@@ -491,7 +507,7 @@ function clientForm(c){
       const o={name:m.querySelector('#cf-name').value.trim(),type:m.querySelector('#cf-type').value,phone:m.querySelector('#cf-phone').value.trim(),start:m.querySelector('#cf-start').value,priceMode:md.value,monthly:num(mo.value),note:m.querySelector('#cf-note').value.trim()};
       if(!o.name||!o.start)return;
       if(e){const en=m.querySelector('#cf-end').value||null;Object.assign(findC(ui.client),o,{end:en});log(o.name+' – izmenjeni podaci ugovora')}
-      else{const nc=Object.assign({id:uid(),end:null,items:[],payments:[],extras:[]},o);state.clients.push(nc);ui.client=nc.id;ui.view='klijent';ui.tab='stvari';log(o.name+' – novi klijent')}
+      else{const nc=Object.assign({id:uid(),no:state.nextClientNo++,nextItem:1,end:null,items:[],payments:[],extras:[]},o);state.clients.push(nc);ui.client=nc.id;ui.view='klijent';ui.tab='stvari';log(o.name+' – novi klijent, broj '+nc.no)}
       save();close();render();toast(e?'Sačuvano':'Klijent je dodat. Sada uradi prijem stvari.');if(!e)prijemForm(findC(ui.client))});
   });
 }
@@ -515,9 +531,9 @@ function prijemForm(c){
     m.querySelector('#pf').addEventListener('submit',ev=>{ev.preventDefault();
       const name=m.querySelector('#pf-name').value.trim();if(!name)return;
       const q=Math.max(1,Math.min(50,parseInt(m.querySelector('#pf-qty').value)||1)),tot=num(pm.value),each=Math.round(tot/q*1000)/1000,zone=m.querySelector('#pf-zone').value,d=m.querySelector('#pf-date').value||iso(today());
-      const codes=[],added=[];for(let k=0;k<q;k++){const code='S-'+String(state.nextCode++).padStart(4,'0');codes.push(code);const ni={id:uid(),code,name:q>1?`${name} (${k+1}/${q})`:name,zone,photo,m3:each,inDate:d,outDate:null,note:''};c.items.push(ni);added.push({c,i:ni})}
+      const codes=[],added=[];for(let k=0;k<q;k++){const code=c.no+'-'+(c.nextItem++);codes.push(code);const ni={id:uid(),code,name:q>1?`${name} (${k+1}/${q})`:name,zone,photo,m3:each,inDate:d,outDate:null,note:''};c.items.push(ni);added.push({c,i:ni})}
       log(`${c.name} – primljeno ${q} ${q===1?'stavka':'stavki'}, ${tot} m³, zona ${zone} (${codes[0]}${q>1?'–'+codes[q-1]:''})`);
-      save();close();render();toast(`Primljeno: ${q} ${q===1?'stavka':'stavki'}`);printDialog(added,true)});
+      save();close();render();toast(`Primljeno: ${q} ${q===1?'stavka':'stavki'}`);if(state.settings.labels==='qr')printDialog(added,true);else writeDialog(added)});
   });
 }
 function izdajForm(c){
@@ -562,7 +578,7 @@ function itemInfo(c,i){
   const zs=state.settings.zones;
   modal(head(esc(i.name))+`<div class="stack">
    <div class="label"><div class="qr" id="qrbox" aria-label="QR kod ${i.code}"></div><div><div class="code">${i.code}</div><div style="font-weight:600">${esc(c.name)}</div><div class="muted">Zona ${esc(i.zone)} · ${fmtD(i.inDate)}</div></div></div>
-   <p class="note" style="margin:0">Ovako izgleda nalepnica. Radnik je skenira telefonom i odmah vidi stavku.</p>
+   <p class="note" style="margin:0">Na komadu piše <b>${i.code}</b> (ručno ili na nalepnici). Taj broj se kuca u pretragu u tabu Magacin.</p>
    ${i.photo?`<img class="photo" src="${i.photo}" alt="Fotografija: ${esc(i.name)}">`:''}
    <dl class="facts panel" style="margin:0"><div><dt>Status</dt><dd>${i.outDate?'Izdato '+fmtD(i.outDate):'U magacinu'}</dd></div><div><dt>Primljeno</dt><dd>${fmtD(i.inDate)}</dd></div><div><dt>Zapremina</dt><dd>${num(i.m3)} m³</dd></div>${i.note?`<div><dt>Napomena</dt><dd>${esc(i.note)}</dd></div>`:''}</dl>
    ${i.outDate?'':`<label class="f" for="ii-m3">Zapremina (m³)<input type="number" step="0.1" min="0" id="ii-m3" value="${num(i.m3)}"></label>`}
@@ -581,6 +597,30 @@ function itemInfo(c,i){
   });
 }
 
+/* ---------- notifications (test) ---------- */
+const isStandalone=()=>!!(window.navigator.standalone||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches));
+function notifStatus(){
+  if(!('Notification' in window))return isStandalone()?'Ovaj telefon ne podržava notifikacije. Na iPhoneu je potreban iOS 16.4 ili noviji.':'Na iPhoneu notifikacije rade samo kad je aplikacija otvorena sa ikonice na početnom ekranu (Safari → Share → Add to Home Screen).';
+  if(Notification.permission==='denied')return 'Notifikacije su zabranjene. Uključi ih na telefonu: Podešavanja → Notifications → Magacin.';
+  if(Notification.permission==='granted')return 'Notifikacije su dozvoljene. Pritisni dugme da stigne probna poruka.';
+  return 'Na prvi test telefon će pitati da li dozvoljavaš notifikacije. Izaberi „Allow”.';
+}
+function notifyTest(delay){
+  if(!('Notification' in window)){toast('Notifikacije ovde nisu dostupne');return}
+  const debtor=state.clients.map(c=>({c,m:money(c)})).find(x=>x.m.status.k==='bad');
+  const body=debtor?`${debtor.c.name} kasni sa uplatom · ${eur(debtor.m.saldo)}`:'Probna notifikacija iz aplikacije Magacin';
+  Notification.requestPermission().then(p=>{
+    render();
+    if(p!=='granted'){toast('Notifikacije nisu dozvoljene');return}
+    const send=()=>{
+      const sw='serviceWorker' in navigator?Promise.race([navigator.serviceWorker.ready,new Promise((_,rej)=>setTimeout(()=>rej(),2500))]):Promise.reject();
+      sw.then(reg=>reg.showNotification('Magacin – podsetnik',{body,icon:'icon-192.png',badge:'icon-192.png',tag:'test'}))
+        .catch(()=>{try{new Notification('Magacin – podsetnik',{body,icon:'icon-192.png'})}catch(e){toast('Slanje notifikacije nije uspelo')}});
+    };
+    if(delay>0){toast('Notifikacija stiže za '+delay+' sekundi');setTimeout(send,delay*1000)}else{send();toast('Poslato')}
+  });
+}
+
 /* ---------- printing labels ---------- */
 function printLabels(list,mode,skip){
   const P=$('#print');P.className=mode==='a4'?'pa4':'p62';
@@ -591,6 +631,12 @@ function printLabels(list,mode,skip){
   else P.innerHTML=list.map(lbl).join('');
   P.querySelectorAll('.qrc').forEach(el=>{try{new QRCode(el,{text:el.dataset.q,width:256,height:256,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})}catch(e){}});
   setTimeout(()=>{try{window.print()}catch(e){toast('Štampanje nije dostupno u ovom prikazu')}},350);
+}
+function writeDialog(list){
+  modal(head('Obeleži primljene komade')+`<p class="note" style="margin:-6px 0 12px">Napiši broj flomasterom na papir i zalepi ga na komad. Pored broja može i ime klijenta.</p>
+   <ul class="list panel" style="margin-bottom:12px">${list.map(x=>`<li><div class="item" style="cursor:default"><span class="code" style="font-family:var(--f-mono);font-size:24px;min-width:4.2em">${x.i.code}</span><div class="main"><div class="t">${esc(x.i.name)}</div><div class="s">${esc(x.c.name)} · zona ${esc(x.i.zone)}</div></div></div></li>`).join('')}</ul>
+   <div class="row"><button class="btn primary" type="button" data-act="close">Gotovo, obeleženo</button><button class="btn" type="button" id="wd-print">Ipak odštampaj nalepnice</button></div>`,m=>{
+   m.querySelector('#wd-print').addEventListener('click',()=>{close();printDialog(list,true)})});
 }
 function printDialog(list,after){
   if(!list.length)return;
@@ -629,6 +675,7 @@ document.addEventListener('click',e=>{
     case 'prevoz':prevozForm(c);break;
     case 'itemInfo':{const cc=findC(a.dataset.c);const it=cc&&cc.items.find(x=>x.id===a.dataset.id);it&&itemInfo(cc,it);break}
     case 'close':close();break;
+    case 'notifyTest':notifyTest(parseInt(v)||0);break;
     case 'labels':{const ins=inStock(c);const pick=ins.filter(i=>ui.sel.has(i.id));printDialog((pick.length?pick:ins).map(i=>({c,i})));break}
     case 'printOne':{const cc=findC(a.dataset.c);const it=cc&&cc.items.find(x=>x.id===a.dataset.id);if(it){close();printDialog([{c:cc,i:it}])}break}
     case 'reset':ui.confirmReset=true;render();break;
@@ -646,12 +693,13 @@ document.addEventListener('input',e=>{
 document.addEventListener('submit',e=>{
   if(e.target.id!=='setForm')return;e.preventDefault();const s=state.settings;
   s.price=num($('#s-price').value)||s.price;s.warnDays=Math.max(0,parseInt($('#s-warn').value)||0);s.grace=Math.max(0,parseInt($('#s-grace').value)||0);
-  s.fixedDay=Math.min(28,Math.max(1,parseInt($('#s-fixed').value)||15));s.mode=document.querySelector('input[name=mode]:checked').value;
+  s.fixedDay=Math.min(28,Math.max(1,parseInt($('#s-fixed').value)||15));s.mode=document.querySelector('input[name=mode]:checked').value;s.labels=document.querySelector('input[name=labels]:checked').value;
   const z=$('#s-zones').value.split(',').map(x=>x.trim().toUpperCase()).filter(Boolean);if(z.length)s.zones=[...new Set(z)];
   save();render();toast('Podešavanja su sačuvana');
 });
 
 state=load()||seed();save();render();
+try{if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
 })();
 </script>
 </body></html>
