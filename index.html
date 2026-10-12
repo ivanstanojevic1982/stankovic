@@ -85,6 +85,7 @@ h1{font-size:30px}h2{font-size:22px}h3{font-size:18px}
 .chip.bad{background:var(--bad-soft);color:var(--bad)}.chip.info{background:var(--info-soft);color:var(--info)}
 .chip.done{background:var(--sunk);color:var(--muted)}
 .zone{display:inline-grid;place-items:center;min-width:26px;height:22px;padding:0 6px;border-radius:5px;background:var(--ink);color:var(--surface);font-family:var(--f-display);font-weight:700;font-size:15px}
+.thumb svg{width:22px;height:22px}
 .thumb{width:44px;height:44px;border-radius:7px;background:var(--sunk);border:1px solid var(--line);flex:none;object-fit:cover;display:grid;place-items:center;color:var(--muted);font-family:var(--f-display);font-weight:700;font-size:18px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;min-height:40px}
 .btn:hover{border-color:var(--muted)}
@@ -233,7 +234,8 @@ function seed(){
   s=D(12,-6); const pOut=iso(addDays(t,-40)); cs.push(mk({name:'Studio Forma',type:'Firma',phone:'060 455 0071',start:s,m3:15,monthly:112.5,
     items:[it('Sajamski štand, kutije','D',s,pOut),it('Sajamski štand, panoi','D',s),it('Rasveta, kofer','D',s),it('Stolovi sklopivi (6)','D',s,pOut)],_unpaid:0}));
   cs.forEach(c=>{const k=c.items.length,base=Math.floor(c.m3*10/k)/10;c.items.forEach((i,j)=>i.m3=j===0?Math.round((c.m3-base*(k-1))*10)/10:base);c.priceMode='auto';delete c.m3});
-  cs.slice().sort((a,b)=>a.start.localeCompare(b.start)).forEach((c,k)=>{c.no=k+1;c.nextItem=1;c.items.forEach(i=>i.code=c.no+'-'+(c.nextItem++))});
+  cs.slice().sort((a,b)=>a.start.localeCompare(b.start)).forEach((c,k)=>{c.no=k+1;c.nextItem=1;c.items.forEach(i=>{i.code=c.no+'-'+(c.nextItem++);i.printed=true})});
+  cs[3].items.forEach(i=>i.printed=false);cs[1].items.slice(-2).forEach(i=>i.printed=false);
   const st={settings:{price:7.5,grace:5,mode:'prijem',fixedDay:15,warnDays:7,zones:['A','B','C','D'],labels:'rucno'},clients:cs,log:[],nextClientNo:cs.length+1,role:'vlasnik',demo:true};
   state=st;
   cs.forEach(c=>{
@@ -302,10 +304,11 @@ const ICON={
  pregled:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
  klijenti:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M16 4a4 4 0 0 1 0 8M22 21c0-3-1.6-5-4-5.7"/></svg>',
  magacin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-8h10v8M7 17h10"/></svg>',
+ stampa:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>',
  podesavanja:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>'
 };
 function renderNav(){
-  const tabs=[['pregled','Pregled'],['klijenti','Klijenti'],['magacin','Magacin']];if(isOwner())tabs.push(['podesavanja','Podešavanja']);
+  const tabs=[['pregled','Pregled'],['klijenti','Klijenti'],['magacin','Magacin'],['stampa','Štampa']];if(isOwner())tabs.push(['podesavanja','Podešavanja']);
   const cur=ui.view==='klijent'?'klijenti':ui.view;
   $('#nav').innerHTML=tabs.map(([k,l])=>`<button type="button" data-act="go" data-v="${k}" ${cur===k?'aria-current="page"':''}>${ICON[k]}${l}</button>`).join('');
   $('#role-v').setAttribute('aria-pressed',isOwner());$('#role-r').setAttribute('aria-pressed',!isOwner());
@@ -315,7 +318,7 @@ function render(){
   if(!isOwner()&&ui.tab==='novac')ui.tab='stvari';
   renderNav();
   const banner=state.demo?`<div class="demo"><span>Prototip sa <b>izmišljenim primerima</b> klijenata. Slobodno probaj prijem, izdavanje i uplatu, pa prebaci ulogu na <b>Radnik</b>. Izmene se ne čuvaju: kad zatvoriš ili osvežiš stranicu, sve se vraća na početak.</span></div>`:'';
-  const v={pregled:vPregled,klijenti:vKlijenti,klijent:vKlijent,magacin:vMagacin,podesavanja:vPodesavanja}[ui.view]||vPregled;
+  const v={pregled:vPregled,klijenti:vKlijenti,klijent:vKlijent,magacin:vMagacin,stampa:vStampa,podesavanja:vPodesavanja}[ui.view]||vPregled;
   $('#app').innerHTML=banner+v();
   window.scrollTo&&ui._top&&(window.scrollTo(0,0),ui._top=false);
 }
@@ -353,6 +356,8 @@ function vPregled(){
       <div class="stat"><div class="v">${state.settings.zones.length}</div><div class="l">Zone</div></div></div>
       <div class="row"><button class="btn primary" type="button" data-act="go" data-v="klijenti">Prijem ili izdavanje stvari</button><button class="btn" type="button" data-act="go" data-v="magacin">Pronađi stavku</button></div>`;
   }
+  const pq=printQueue().length;
+  html+=`<section class="panel"><div class="item" style="cursor:default;padding:14px"><span class="thumb" aria-hidden="true">${ICON.stampa}</span><div class="main"><div class="t">Za štampu: ${pq} ${pq===1?'nalepnica':'nalepnica'}</div><div class="s">${pq?'Roba je primljena, nalepnice još nisu odštampane.':'Sve nalepnice su odštampane.'}</div></div>${pq?'<button class="btn" type="button" data-act="go" data-v="stampa">Otvori</button>':''}</div></section>`;
   html+=`<section class="panel"><div class="hd"><h2>Poslednje aktivnosti</h2></div><ul class="list">`+
     (state.log.length?state.log.slice(0,8).filter(l=>isOwner()||!/uplata/i.test(l.text)).map(l=>`<li><div class="item" style="cursor:default"><div class="main"><div>${esc(l.text)}</div></div><div class="r s muted num" style="font-size:13px">${fmtD(l.ts)}</div></div></li>`).join(''):'<li class="empty">Još nema aktivnosti.</li>')+'</ul></section>';
   return html+'</div>';
@@ -375,7 +380,7 @@ function itemRow(c,i,sel){
   return `<li><div class="item" style="cursor:default">
     ${sel?`<input type="checkbox" class="check" data-act="sel" data-id="${i.id}" ${ui.sel.has(i.id)?'checked':''} aria-label="Izaberi ${esc(i.name)}">`:''}
     <button type="button" class="item" style="padding:0" data-act="itemInfo" data-c="${c.id}" data-id="${i.id}">${th}
-    <div class="main"><div class="t">${esc(i.name)}</div><div class="s"><span class="mono">${i.code}</span> · ${num(i.m3)} m³ · ${i.outDate?'izdato '+fmtD(i.outDate):'primljeno '+fmtD(i.inDate)}</div></div>
+    <div class="main"><div class="t">${esc(i.name)}</div><div class="s"><span class="mono">${i.code}</span>${!i.printed&&!i.outDate?' <span class="chip warn" style="font-size:11px;padding:0 7px">za štampu</span>':''} · ${num(i.m3)} m³ · ${i.outDate?'izdato '+fmtD(i.outDate):'primljeno '+fmtD(i.inDate)}</div></div>
     <span class="zone">${esc(i.zone)}</span></button></div></li>`;
 }
 function vKlijent(){
@@ -423,6 +428,28 @@ function vKlijent(){
       </tbody></table></div></section>`;
   }
   return html+'</div>';
+}
+function printQueue(){const out=[];state.clients.forEach(c=>c.items.forEach(i=>{if(!i.printed&&!i.outDate)out.push({c,i})}));return out}
+function vStampa(){
+  const q=printQueue();
+  if(!ui.psel)ui.psel=new Set(q.map(x=>x.i.id));
+  q.forEach(x=>{if(!ui.pseen||!ui.pseen.has(x.i.id))ui.psel.add(x.i.id)});ui.pseen=new Set(q.map(x=>x.i.id));
+  const selN=q.filter(x=>ui.psel.has(x.i.id)).length;
+  const groups=[];q.forEach(x=>{let g=groups.find(g=>g.c===x.c);if(!g)groups.push(g={c:x.c,items:[]});g.items.push(x.i)});
+  groups.sort((a,b)=>a.c.no-b.c.no);
+  return `<div class="stack"><h1>Za štampu</h1>
+   <p class="note" style="margin:0">Ovde čekaju nalepnice za primljenu robu. U kancelariji otvori aplikaciju na računaru i odštampaj ih sve odjednom, na bilo kom štampaču povezanom sa računarom.</p>
+   ${q.length?`<div class="row"><button class="btn primary" type="button" data-act="printQueue" ${selN?'':'disabled'}>Štampaj izabrano (${selN})</button><span class="spacer"></span><button class="link" type="button" data-act="pselAll">${selN===q.length?'Poništi izbor':'Izaberi sve'}</button></div>`:''}
+   ${q.length?groups.map(g=>`<section class="panel"><div class="hd"><span class="zone" style="background:var(--accent);color:var(--accent-ink);min-width:32px">${g.c.no}</span><h3 style="flex:1">${esc(g.c.name)}</h3><span class="muted" style="font-size:13px">${g.items.length} nalepnica</span></div>
+     <ul class="list">${g.items.map(i=>`<li><label class="item" style="cursor:pointer"><input type="checkbox" class="check" data-act="psel" data-id="${i.id}" ${ui.psel.has(i.id)?'checked':''}><span class="mono" style="font-size:16px;min-width:3.6em">${i.code}</span><div class="main"><div class="t">${esc(i.name)}</div><div class="s">primljeno ${fmtD(i.inDate)}</div></div><span class="zone">${esc(i.zone)}</span></label></li>`).join('')}</ul></section>`).join('')
+     :'<section class="panel"><div class="empty">Sve nalepnice su odštampane. Kad radnik primi novu robu, nalepnice se pojave ovde.</div></section>'}
+  </div>`;
+}
+function askPrinted(list){
+  const pending=list.filter(x=>!x.i.printed);if(!pending.length)return;
+  modal(head('Da li su se nalepnice lepo odštampale?')+`<p class="note" style="margin:-6px 0 12px">${pending.length} nalepnica. Ako jesu, skidamo ih sa liste „Za štampu”.</p>
+   <div class="row"><button class="btn primary" type="button" id="ap-yes">Da, označi kao odštampane</button><button class="btn" type="button" data-act="close">Ne, ostavi ih na listi</button></div>`,m=>{
+   m.querySelector('#ap-yes').addEventListener('click',()=>{pending.forEach(x=>x.i.printed=true);log(`Odštampano ${pending.length} nalepnica (${pending.map(x=>x.i.code).slice(0,4).join(', ')}${pending.length>4?'…':''})`);ui.psel=null;save();close();render();toast('Označeno kao odštampano')})});
 }
 function vMagacin(){
   const zs=state.settings.zones,act=state.clients.filter(active);
@@ -531,7 +558,7 @@ function prijemForm(c){
     m.querySelector('#pf').addEventListener('submit',ev=>{ev.preventDefault();
       const name=m.querySelector('#pf-name').value.trim();if(!name)return;
       const q=Math.max(1,Math.min(50,parseInt(m.querySelector('#pf-qty').value)||1)),tot=num(pm.value),each=Math.round(tot/q*1000)/1000,zone=m.querySelector('#pf-zone').value,d=m.querySelector('#pf-date').value||iso(today());
-      const codes=[],added=[];for(let k=0;k<q;k++){const code=c.no+'-'+(c.nextItem++);codes.push(code);const ni={id:uid(),code,name:q>1?`${name} (${k+1}/${q})`:name,zone,photo,m3:each,inDate:d,outDate:null,note:''};c.items.push(ni);added.push({c,i:ni})}
+      const codes=[],added=[];for(let k=0;k<q;k++){const code=c.no+'-'+(c.nextItem++);codes.push(code);const ni={id:uid(),code,name:q>1?`${name} (${k+1}/${q})`:name,zone,photo,m3:each,inDate:d,outDate:null,note:'',printed:false};c.items.push(ni);added.push({c,i:ni})}
       log(`${c.name} – primljeno ${q} ${q===1?'stavka':'stavki'}, ${tot} m³, zona ${zone} (${codes[0]}${q>1?'–'+codes[q-1]:''})`);
       save();close();render();toast(`Primljeno: ${q} ${q===1?'stavka':'stavki'}`);if(state.settings.labels==='qr')printDialog(added,true);else writeDialog(added)});
   });
@@ -583,7 +610,7 @@ function itemInfo(c,i){
    <dl class="facts panel" style="margin:0"><div><dt>Status</dt><dd>${i.outDate?'Izdato '+fmtD(i.outDate):'U magacinu'}</dd></div><div><dt>Primljeno</dt><dd>${fmtD(i.inDate)}</dd></div><div><dt>Zapremina</dt><dd>${num(i.m3)} m³</dd></div>${i.note?`<div><dt>Napomena</dt><dd>${esc(i.note)}</dd></div>`:''}</dl>
    ${i.outDate?'':`<label class="f" for="ii-m3">Zapremina (m³)<input type="number" step="0.1" min="0" id="ii-m3" value="${num(i.m3)}"></label>`}
    ${i.outDate?'':`<label class="f" for="ii-zone">Premesti u zonu<select id="ii-zone">${zs.map(z=>`<option ${z===i.zone?'selected':''}>${esc(z)}</option>`).join('')}</select></label>`}
-   <div class="row"><button class="btn" type="button" data-act="printOne" data-c="${c.id}" data-id="${i.id}">Štampaj nalepnicu</button><button class="btn" type="button" data-act="openFromItem" data-id="${c.id}">Karton klijenta</button><button class="btn primary" type="button" data-act="close">Zatvori</button></div>
+   <div class="row"><button class="btn" type="button" data-act="printOne" data-c="${c.id}" data-id="${i.id}">Štampaj nalepnicu</button>${!i.printed&&!i.outDate?`<button class="btn" type="button" data-act="markPrinted" data-c="${c.id}" data-id="${i.id}">Označi kao odštampano</button>`:''}<button class="btn" type="button" data-act="openFromItem" data-id="${c.id}">Karton klijenta</button><button class="btn primary" type="button" data-act="close">Zatvori</button></div>
    <div id="ii-del"><button class="btn danger" type="button" id="ii-delbtn">Obriši stavku</button></div></div>`,m=>{
    const del=m.querySelector('#ii-del');
    const ask=()=>{del.innerHTML=`<div class="confirm" role="alert"><span>Da li si siguran da brišeš <b>${i.code}</b> (${esc(i.name)})? Brisanje se ne može vratiti.${!i.outDate&&isOwner()&&c.priceMode!=='fiksna'?` Mesečna cena klijenta pada na ${eur(r2((curM3(c)-num(i.m3))*state.settings.price))}.`:''}</span><span class="spacer"></span><button class="btn sm" type="button" id="ii-no">Odustani</button><button class="btn sm danger" type="button" id="ii-yes">Da, obriši</button></div>`;
@@ -630,7 +657,7 @@ function printLabels(list,mode,skip){
     P.innerHTML=pages.map(pg=>`<div class="a4p">${pg.map(lbl).join('')}</div>`).join('')}
   else P.innerHTML=list.map(lbl).join('');
   P.querySelectorAll('.qrc').forEach(el=>{try{new QRCode(el,{text:el.dataset.q,width:256,height:256,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})}catch(e){}});
-  setTimeout(()=>{try{window.print()}catch(e){toast('Štampanje nije dostupno u ovom prikazu')}},350);
+  setTimeout(()=>{try{window.print()}catch(e){toast('Štampanje nije dostupno u ovom prikazu')}setTimeout(()=>askPrinted(list),500)},350);
 }
 function writeDialog(list){
   modal(head('Obeleži primljene komade')+`<p class="note" style="margin:-6px 0 12px">Napiši broj flomasterom na papir i zalepi ga na komad. Pored broja može i ime klijenta.</p>
@@ -675,6 +702,10 @@ document.addEventListener('click',e=>{
     case 'prevoz':prevozForm(c);break;
     case 'itemInfo':{const cc=findC(a.dataset.c);const it=cc&&cc.items.find(x=>x.id===a.dataset.id);it&&itemInfo(cc,it);break}
     case 'close':close();break;
+    case 'psel':a.checked?ui.psel.add(a.dataset.id):ui.psel.delete(a.dataset.id);render();break;
+    case 'pselAll':{const q=printQueue();const all=q.every(x=>ui.psel.has(x.i.id));ui.psel=new Set(all?[]:q.map(x=>x.i.id));render();break}
+    case 'printQueue':{const q=printQueue().filter(x=>ui.psel.has(x.i.id));printDialog(q);break}
+    case 'markPrinted':{const cc=findC(a.dataset.c);const it=cc&&cc.items.find(x=>x.id===a.dataset.id);if(it){it.printed=true;log(`${cc.name} – ${it.code} označeno kao odštampano`);save();close();render();toast('Označeno kao odštampano')}break}
     case 'notifyTest':notifyTest(parseInt(v)||0);break;
     case 'labels':{const ins=inStock(c);const pick=ins.filter(i=>ui.sel.has(i.id));printDialog((pick.length?pick:ins).map(i=>({c,i})));break}
     case 'printOne':{const cc=findC(a.dataset.c);const it=cc&&cc.items.find(x=>x.id===a.dataset.id);if(it){close();printDialog([{c:cc,i:it}])}break}
